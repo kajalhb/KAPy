@@ -9,4 +9,5 @@ from .regridding import *
 from .indicators import *
 from .workflow import getWorkflow
 from .plots import *
+from .save_to_netcdf import *
 from .helpers import *

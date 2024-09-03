@@ -23,7 +23,7 @@ def generateArealstats(config, inFile, outFile):
     # TODO
 
     # Average spatially
-    spMean = thisDat.indicator.mean(dim=["longitude", "latitude"])
+    spMean = thisDat.indicator.mean(dim = ['Yc', 'Xc'])#(dim=["longitude", "latitude"])
 
     # Save files pandas
     dfOut = spMean.to_dataframe()

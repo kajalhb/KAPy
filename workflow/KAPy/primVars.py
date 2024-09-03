@@ -18,6 +18,7 @@ import pickle
 import sys
 import importlib
 from cdo import Cdo
+import numpy as np
 
 
 def buildPrimVar(config, inFiles, outFile, inpID):
@@ -47,6 +48,11 @@ def buildPrimVar(config, inFiles, outFile, inpID):
                 input=f,
                 returnXDataset=True,
             )
+            # print(type(thisDs))
+            # print(np.min(thisDs["lon"]))
+            # print(np.max(thisDs["lon"]))
+            # print(np.min(thisDs["lat"]))
+            # print(np.max(thisDs["lat"]))
             dsList += [thisDs]
         elif config["cutouts"]["method"] == "none":
             # Load everything using xarray

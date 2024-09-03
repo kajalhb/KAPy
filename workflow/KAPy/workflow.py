@@ -8,7 +8,7 @@ import KAPy
 os.chdir("..")
 config=KAPy.getConfig("./config/config.yaml")
 """
-
+import arrow
 import sys
 import os
 import pandas as pd
@@ -47,11 +47,28 @@ def getWorkflow(config):
     for thisKey, thisInp in inp.items():
         # Get file list
         inpTbl = pd.DataFrame(glob.glob(thisInp["path"]), columns=["inpPath"])
+
         # Make into table and extract stems
         inpTbl["stems"] = [
             re.search(thisInp["stemRegex"], os.path.basename(x)).group(1)
             for x in inpTbl["inpPath"]
         ]
+
+        for indicator_id in ind:
+            if ind[indicator_id]["time_binning"] == "periods":
+                valid_periods = []
+                for period_id in config["periods"]:
+                    valid_periods.append([arrow.get(str(config["periods"][period_id]["start"])), arrow.get(str(config["periods"][period_id]["end"]))])
+                for idx, stem in enumerate(inpTbl["stems"]):
+                    year = arrow.get(stem.split("_")[-1])
+                    keep = False
+                    for valid_period in valid_periods:
+                        if valid_period[0] <= year <= valid_period[-1]:
+                            keep = True
+                    if not keep:
+                        inpTbl = inpTbl.drop([idx])
+        inpTbl = inpTbl.reset_index(drop=True)
+        
         # Process inputs that have scenarios first
         pvList = []
         if thisInp["hasScenarios"]:
@@ -99,9 +116,7 @@ def getWorkflow(config):
             os.path.join(outDirs["variables"], thisInp["varName"], f)
             for f in pvTbl["pvFname"]
         ]
-        pvTbl["pvPath"] = (
-            pvTbl["pvPath"] + ".nc"
-        )  # Store as NetCDF - alt. pkl in the future.
+        pvTbl["pvPath"] = (pvTbl["pvPath"] + ".nc")  # Store as NetCDF - alt. pkl in the future.
 
         pvDict[thisKey] = (
             pvTbl.groupby("pvPath")
@@ -248,6 +263,7 @@ def getWorkflow(config):
 
     # Loop over available indicators to make plots
     pltDict = {}
+    netcdf_paths = {}
     for thisInd in config["indicators"].values():
         # But what should we plot? It depends on the nature of the indicator
         # * Period-based indicators should plot the spatial map and the plots
@@ -258,8 +274,14 @@ def getWorkflow(config):
             pltDict[bxpFname] = asList[str(thisInd["id"])]
 
             # Spatial plot
-            spFname = os.path.join(outDirs["plots"], f"{thisInd['id']}_spatial.png")
-            pltDict[spFname] = ensList[str(thisInd["id"])]
+            # spFname = os.path.join(outDirs["plots"], f"{thisInd['id']}_spatial.png")
+            # pltDict[spFname] = ensList[str(thisInd["id"])]
+
+            # netcdf
+            for scenario in list(config["scenarios"].keys()):
+                if scenario == "historical":
+                    continue
+                netcdf_paths[os.path.join(outDirs["netcdf"], f"{thisInd['id']}_{scenario}_change_periods.nc")] = ensList[str(thisInd["id"])]
 
         elif thisInd["time_binning"] in ["years", "months"]:
             # Time series plot
@@ -275,6 +297,7 @@ def getWorkflow(config):
         "ensstats": ensDict,
         "arealstats": asDict,
         "plots": pltDict,
+        "netcdf": netcdf_paths
     }
     # Need to create an "all" dict as well containing all targets in the workflow
     allList = []

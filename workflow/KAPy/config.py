@@ -25,7 +25,7 @@ def readConfig(configfile):
     else:
         sys.exit(
             f"Cannot find configuration file: {configfile}. "
-            + "Working directory: '{os.getcwd()}'"
+            + f"Working directory: '{os.getcwd()}'"
         )
     return cfg
 

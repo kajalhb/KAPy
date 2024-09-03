@@ -57,7 +57,7 @@ def calculateIndicators(config, inFile, outFile, indID):
             slices.append(res)
 
         # Convert list back into dataset
-        dout = xr.concat(slices, dim="periodID")
+        dout = xr.concat(slices, dim="periodID", coords="minimal")
         dout.periodID.attrs["name"] = "periodID"
         dout.periodID.attrs["description"] = (
             f"For period definitions see {config['configurationTables']['periods']}"
