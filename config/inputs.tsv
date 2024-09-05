@@ -6,4 +6,4 @@ id	srcName	varName	path	stemRegex	internalVarName	hasScenarios	applyPreprocessor
 #CMIP5-MET-cnrm-pr	CMIP5	pr	/lustre/storeC-ext/users/kin2100/MET/3DBC/application/cnrm-r1i1p1-aladin/pr/rcp[24][65]/*_2[01][04-9][0-9].nc4	(.*).nc4	pr	TRUE	FALSE
 #CMIP5-MET-mpi-pr	CMIP5	pr	/lustre/storeC-ext/users/kin2100/MET/3DBC/application/mpi-r1i1p1-cclm/pr/rcp[24][65]/*_2[01][04-9][0-9].nc4	(.*).nc4	pr	TRUE	FALSE
 #CMIP5-MET-mpi-pr	CMIP5	pr	/lustre/storeC-ext/users/kin2100/MET/3DBC/application/mpi-r1i1p1-cclm/pr/[rrh][cci][pps][24t]*/*_????.nc4	(.*).nc4	pr	TRUE	FALSE
-CMIP5-MET-hadgem-pr	CMIP5	pr	/lustre/storeC-ext/users/kin2100/MET/3DBC/application/hadgem-r1i1p1-rca/pr/[rrh][cci][pps][24t]*/*_????.nc4	(.*).nc4	pr	TRUE	FALSE
+CMIP5-MET-hadgem-rca-pr	CMIP5	pr	/lustre/storeC-ext/users/kin2100/MET/3DBC/application/hadgem-r1i1p1-rca/pr/[rrh][cci][pps][24t]*/*_????.nc4	(.*).nc4	pr	TRUE	FALSE

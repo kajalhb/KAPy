@@ -24,10 +24,15 @@ def save_to_netcdf(config, indicator_id, scenario, ensemble_stats_files, netcdf_
             ds_historical = xr.open_dataset(filename)
     
     n_periods = len(config["periods"])
-    change_ds = xr.Dataset()
+    change_ds_list = []
+    historical_mean_value = ds_historical["indicator_mean"].isel(periodID=0).drop("periodID")
 
     for period in range(1, n_periods):
-        change_ds = xr.concat([ds.isel(periodID=period) - ds_historical.isel(periodID=0), change_ds], "periodID")
+        current_ds = xr.Dataset(ds.isel(periodID=period) - ds_historical.isel(periodID=0)).expand_dims("periodID")
+        current_change = current_ds["indicator_mean"].isel(periodID=0)
+        change_ds_list.append(current_ds.assign(indicator_mean_rel = xr.DataArray(current_change*100/historical_mean_value).expand_dims("periodID")))
+
+    change_ds = xr.concat(change_ds_list, "periodID")
 
     change_ds["periodID"].astype("int")
     attrs = ds.attrs
@@ -35,37 +40,6 @@ def save_to_netcdf(config, indicator_id, scenario, ensemble_stats_files, netcdf_
     attrs["name"] = indicator["name"]
     attrs["scenario"] =  scenario
     change_ds = change_ds.assign_attrs(attrs)
+    change_ds = change_ds["indicator_mean_rel"].assign_attrs({"units": "%"})
 
     change_ds.to_netcdf(netcdf_filename[0])
-    
-
-    #     changedf = change.indicator_mean.to_dataframe().reset_index()
-    #     changedf["fname"] = os.path.basename(filename)
-    #     changedf["scenario"] = changedf["fname"].str.extract("^.*?_.*?_(.*?)_.*$")
-    #     changes_dataframes += [changedf]
-    # pltDat = pd.concat(changes_dataframes)
-
-#     # Make plot
-#     p = (
-#         ggplot(pltDat, aes(x="lon", y="lat", fill="indicator_mean"))
-#         + geom_raster()
-#         + facet_wrap("~scenario")
-#         + theme_bw()
-#         + labs(
-#             x="",
-#             y="",
-#             fill=f"Change\n({thisInd['units']})",
-#             title=f"{thisInd['name']} ",
-#             caption="Change in indicator from first period to last period",
-#         )
-#         + scale_x_continuous(expand=[0, 0])
-#         + scale_y_continuous(expand=[0, 0])
-#         + theme(legend_position="bottom")
-#         + coord_fixed()
-#     )
-
-#     # Output
-#     if outFile is not None:
-#         p.save(outFile[0],
-#                verbose=False)
-#     return p
