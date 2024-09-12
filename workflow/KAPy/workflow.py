@@ -49,16 +49,18 @@ def getWorkflow(config):
         inpTbl = pd.DataFrame(glob.glob(thisInp["path"]), columns=["inpPath"])
 
         # Make into table and extract stems
-        inpTbl["stems"] = [
-            re.search(thisInp["stemRegex"], os.path.basename(x)).group(1)
-            for x in inpTbl["inpPath"]
-        ]
+        inpTbl["stems"] = [re.search(thisInp["stemRegex"], os.path.basename(x)).group(1) for x in inpTbl["inpPath"]]
 
         for indicator_id in ind:
             if ind[indicator_id]["time_binning"] == "periods":
                 valid_periods = []
                 for period_id in config["periods"]:
-                    valid_periods.append([arrow.get(str(config["periods"][period_id]["start"])), arrow.get(str(config["periods"][period_id]["end"]))])
+                    valid_periods.append(
+                        [
+                            arrow.get(str(config["periods"][period_id]["start"])),
+                            arrow.get(str(config["periods"][period_id]["end"])),
+                        ]
+                    )
                 for idx, stem in enumerate(inpTbl["stems"]):
                     year = arrow.get(stem.split("_")[-1])
                     keep = False
@@ -68,7 +70,7 @@ def getWorkflow(config):
                     if not keep:
                         inpTbl = inpTbl.drop([idx])
         inpTbl = inpTbl.reset_index(drop=True)
-        
+
         # Process inputs that have scenarios first
         pvList = []
         if thisInp["hasScenarios"]:
@@ -76,53 +78,34 @@ def getWorkflow(config):
                 # Get files that match experiments first
                 scenarioRegex = "|".join(thisSc["scenarioStrings"])
                 inThisScenario = inpTbl["stems"].str.contains(scenarioRegex)
-                theseFiles = inpTbl[
-                    inThisScenario
-                ].copy()  # Explicit copy to avoid SettingWithCopyWarning
+                theseFiles = inpTbl[inThisScenario].copy()  # Explicit copy to avoid SettingWithCopyWarning
                 # Iterate over scenario Strings and test for presence.
                 for s in thisSc["scenarioStrings"]:
                     theseFiles[s] = theseFiles["stems"].str.contains(s)
                 # Strip the scenario string out of the stem
-                theseFiles["stemsNoScen"] = theseFiles["stems"].str.replace(
-                    scenarioRegex, "_", regex=True
-                )
+                theseFiles["stemsNoScen"] = theseFiles["stems"].str.replace(scenarioRegex, "_", regex=True)
                 # We aggregate over the scenario-free stems, and drop rows where we we
                 # don't have all scenarios represented
-                aggDict = {
-                    s: lambda x: True if any(x) else None
-                    for s in thisSc["scenarioStrings"]
-                }
+                aggDict = {s: lambda x: True if any(x) else None for s in thisSc["scenarioStrings"]}
                 aggDict["inpPath"] = lambda x: list(x)
                 validStems = theseFiles.groupby("stemsNoScen").agg(aggDict)
                 validStems = validStems.dropna()
                 # Generate the primary variable filename
-                pvFnames = validStems.reset_index()[["stemsNoScen", "inpPath"]].explode(
-                    "inpPath"
-                )
+                pvFnames = validStems.reset_index()[["stemsNoScen", "inpPath"]].explode("inpPath")
                 pvFnames["pvFname"] = (
-                    f"{thisInp['varName']}_{thisInp['srcName']}_{thisSc['id']}_"
-                    + pvFnames["stemsNoScen"]
+                    f"{thisInp['varName']}_{thisInp['srcName']}_{thisSc['id']}_" + pvFnames["stemsNoScen"]
                 )
                 pvList += [pvFnames]
         else:
-            inpTbl["pvFname"] = (
-                f"{thisInp['varName']}_{thisInp['srcName']}_" + inpTbl["stems"]
-            )
+            inpTbl["pvFname"] = f"{thisInp['varName']}_{thisInp['srcName']}_" + inpTbl["stems"]
             pvList += [inpTbl]
 
         # Build the full filename and tidy up the output into a dict
         pvTbl = pd.concat(pvList)
-        pvTbl["pvPath"] = [
-            os.path.join(outDirs["variables"], thisInp["varName"], f)
-            for f in pvTbl["pvFname"]
-        ]
-        pvTbl["pvPath"] = (pvTbl["pvPath"] + ".nc")  # Store as NetCDF - alt. pkl in the future.
+        pvTbl["pvPath"] = [os.path.join(outDirs["variables"], thisInp["varName"], f) for f in pvTbl["pvFname"]]
+        pvTbl["pvPath"] = pvTbl["pvPath"] + ".nc"  # Store as NetCDF - alt. pkl in the future.
 
-        pvDict[thisKey] = (
-            pvTbl.groupby("pvPath")
-            .apply(lambda x: list(x["inpPath"]), include_groups=False)
-            .to_dict()
-        )
+        pvDict[thisKey] = pvTbl.groupby("pvPath").apply(lambda x: list(x["inpPath"]), include_groups=False).to_dict()
 
     # Secondary Variables---------------------------------------------
     # Setup the variable palette. As we add each addition variable, we concatentate it onto
@@ -147,9 +130,7 @@ def getWorkflow(config):
                 print("Error:", e)
 
             # Pivot and retain only those in common
-            svTbl = longSVTbl.pivot(
-                index=["src", "stems"], columns="varName", values="path"
-            )
+            svTbl = longSVTbl.pivot(index=["src", "stems"], columns="varName", values="path")
             svTbl = svTbl.dropna().reset_index()
             # Now we have a list of valid files that can be made. Store the results
             validPaths = [
@@ -173,11 +154,7 @@ def getWorkflow(config):
         selVars = varPal[useThese]
         validPaths = [
             os.path.join(outDirs["indicators"], str(thisInd["id"]), fName)
-            for fName in f"{thisInd['id']}_"
-            + selVars["src"]
-            + "_"
-            + selVars["stems"]
-            + ".nc"
+            for fName in f"{thisInd['id']}_" + selVars["src"] + "_" + selVars["stems"] + ".nc"
         ]
         indDict[indKey] = thisInd
         indDict[indKey]["files"] = validPaths
@@ -187,20 +164,11 @@ def getWorkflow(config):
     doRegridding = config["outputGrid"]["regriddingEngine"] != "None"
     if doRegridding:
         # Remap directory
-        rgTbl = pd.DataFrame(
-            [i for this in indDict.values() for i in this["files"]], columns=["indPath"]
-        )
-        rgTbl["indID"] = [
-            os.path.basename(os.path.dirname(f)) for f in rgTbl["indPath"]
-        ]
+        rgTbl = pd.DataFrame([i for this in indDict.values() for i in this["files"]], columns=["indPath"])
+        rgTbl["indID"] = [os.path.basename(os.path.dirname(f)) for f in rgTbl["indPath"]]
         rgTbl["indFname"] = [os.path.basename(p) for p in rgTbl["indPath"]]
-        rgTbl["rgPath"] = [
-            os.path.join(outDirs["regridded"], f) for f in rgTbl["indFname"]
-        ]
-        validPaths = [
-            os.path.join(outDirs["regridded"], rw["indID"], rw["indFname"])
-            for idx, rw in rgTbl.iterrows()
-        ]
+        rgTbl["rgPath"] = [os.path.join(outDirs["regridded"], f) for f in rgTbl["indFname"]]
+        validPaths = [os.path.join(outDirs["regridded"], rw["indID"], rw["indFname"]) for idx, rw in rgTbl.iterrows()]
         # Extract the dict
         rgDict = {"files": validPaths}
     else:
@@ -212,20 +180,12 @@ def getWorkflow(config):
     if doRegridding:
         ensTbl = pd.DataFrame(rgDict["files"], columns=["srcPath"])
     else:
-        ensTbl = pd.DataFrame(
-            [i for this in indDict.values() for i in this["files"]], columns=["srcPath"]
-        )
+        ensTbl = pd.DataFrame([i for this in indDict.values() for i in this["files"]], columns=["srcPath"])
     ensTbl["srcFname"] = [os.path.basename(p) for p in ensTbl["srcPath"]]
     ensTbl["ens"] = ensTbl["srcFname"].str.extract("(.*?_.*?_.*?)_.*$")
-    ensTbl["ensPath"] = [
-        os.path.join(outDirs["ensstats"], f + "_ensstats.nc") for f in ensTbl["ens"]
-    ]
+    ensTbl["ensPath"] = [os.path.join(outDirs["ensstats"], f + "_ensstats.nc") for f in ensTbl["ens"]]
     # Extract the dict
-    ensDict = (
-        ensTbl.groupby("ensPath")
-        .apply(lambda x: list(x["srcPath"]), include_groups=False)
-        .to_dict()
-    )
+    ensDict = ensTbl.groupby("ensPath").apply(lambda x: list(x["srcPath"]), include_groups=False).to_dict()
 
     # Arealstatistics----------------------------------------------
     # Start by building list of input files to calculate arealstatistics for
@@ -238,11 +198,7 @@ def getWorkflow(config):
     asTbl["asFname"] = asTbl["srcFname"].str.replace("nc", "csv")
     asTbl["asPath"] = [os.path.join(outDirs["arealstats"], f) for f in asTbl["asFname"]]
     # Make the dict
-    asDict = (
-        asTbl.groupby("asPath")
-        .apply(lambda x: list(x["srcPath"]), include_groups=False)
-        .to_dict()
-    )
+    asDict = asTbl.groupby("asPath").apply(lambda x: list(x["srcPath"]), include_groups=False).to_dict()
 
     # Plots----------------------------------------------------
     # Collate and process sources for plots
@@ -251,11 +207,7 @@ def getWorkflow(config):
         inpTbl["fname"] = [os.path.basename(f) for f in inpTbl["path"]]
         inpTbl["indId"] = inpTbl["fname"].str.extract("^(.*?)_.*$")
         inpTbl["indSrc"] = inpTbl["fname"].str.extract("^.*?_(.*?)_.*$")
-        inpDict = (
-            inpTbl.groupby("indId")
-            .apply(lambda x: list(x["path"]), include_groups=False)
-            .to_dict()
-        )
+        inpDict = inpTbl.groupby("indId").apply(lambda x: list(x["path"]), include_groups=False).to_dict()
         return inpDict
 
     asList = makeInputDict(asDict)
@@ -281,7 +233,9 @@ def getWorkflow(config):
             for scenario in list(config["scenarios"].keys()):
                 if scenario == "historical":
                     continue
-                netcdf_paths[os.path.join(outDirs["netcdf"], f"{thisInd['id']}_{scenario}_change_periods.nc")] = ensList[str(thisInd["id"])]
+                netcdf_paths[os.path.join(outDirs["netcdf"], f"{thisInd['id']}_{scenario}_change_periods.nc")] = (
+                    ensList[str(thisInd["id"])]
+                )
 
         elif thisInd["time_binning"] in ["years", "months"]:
             # Time series plot
@@ -297,7 +251,7 @@ def getWorkflow(config):
         "ensstats": ensDict,
         "arealstats": asDict,
         "plots": pltDict,
-        "netcdf": netcdf_paths
+        "netcdf": netcdf_paths,
     }
     # Need to create an "all" dict as well containing all targets in the workflow
     allList = []

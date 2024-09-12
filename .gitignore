@@ -1,10 +1,12 @@
 /*.ini
 .snakemake
+.github/
 __pycache__
 .ipynb_checkpoints
 .Rproj.user
 *.Rproj
 
-docs/*
-resources/*
-.github/*
+/docs/
+/resources/
+*.md
+LICENSE
