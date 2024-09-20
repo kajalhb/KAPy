@@ -273,13 +273,13 @@ rule plots_boxplots:
 #         KAPy.makeSpatialplot(config,wildcards.indID,input,output)
 
 # Change in netcdf
-rule change_periods_to_netcdf:
+rule save_change_to_netcdf:
     output:
         os.path.join(outDirs['netcdf'], '{indID}_{es}_change_periods.nc')
     input:
         lambda wildcards: wf['netcdf'][os.path.join(outDirs['netcdf'], f"{wildcards.indID}_{wildcards.es}_change_periods.nc")]
     run:
-        KAPy.save_to_netcdf(config, wildcards.indID, wildcards.es, input, output)
+        KAPy.save_change_to_netcdf(config, wildcards.indID, wildcards.es, input, output)
 
 #All-------------------
 # wf['all'] = wf['all'][:-1]

@@ -16,8 +16,9 @@ output_files = [/lustre/storeC-ext/users/klimakverna/development/Klimakverna-pil
 """
 
 
-def save_to_netcdf(config, indicator_id, scenario, ensemble_stats_files, netcdf_filename=None):
-
+def save_change_to_netcdf(
+    config: dict, indicator_id: str, scenario: str, ensemble_stats_files: list[str], netcdf_filename=None
+):
     indicator = config["indicators"][indicator_id]
 
     for filename in ensemble_stats_files:
@@ -26,26 +27,33 @@ def save_to_netcdf(config, indicator_id, scenario, ensemble_stats_files, netcdf_
         elif "historical" in filename:
             ds_historical = xr.open_dataset(filename)
 
-    n_periods = len(config["periods"])
     change_ds_list = []
-    historical_mean_value = ds_historical["indicator_mean"].isel(periodID=0).drop("periodID")
+    historical_mean_values = ds_historical["indicator_mean"].isel(periodID=0).drop("periodID")
+    periods = ["2", "3"]
 
-    for period in range(1, n_periods):
-        current_ds = xr.Dataset(ds.isel(periodID=period) - ds_historical.isel(periodID=0)).expand_dims("periodID")
-        current_change = current_ds["indicator_mean"].isel(periodID=0)
+    for period in periods:
+        try:
+            current_ds = xr.Dataset(ds.sel(periodID=period)).drop("periodID")
+        except KeyError:
+            current_ds = xr.Dataset(ds.sel(periodID=int(period))).drop("periodID")
+        indicator_mean_change = current_ds["indicator_mean"] - historical_mean_values
+        indicator_mean_relative_change = indicator_mean_change * 100 / historical_mean_values
         change_ds_list.append(
             current_ds.assign(
-                indicator_mean_rel=xr.DataArray(current_change * 100 / historical_mean_value).expand_dims("periodID")
+                indicator_mean_change=indicator_mean_change.expand_dims("periodID"),
+                indicator_mean_relative_change=indicator_mean_relative_change.expand_dims("periodID"),
             )
         )
 
     change_ds = xr.concat(change_ds_list, "periodID")
-    change_ds["periodID"].astype("int")
+    change_ds = change_ds.assign(periodID=[2, 3])
+    # change_ds["periodID"].astype("int")  # for cdo infon to not throw error
+
     attrs = ds.attrs
     attrs["units"] = indicator["units"]
     attrs["name"] = indicator["name"]
     attrs["scenario"] = scenario
     change_ds = change_ds.assign_attrs(attrs)
-    change_ds["indicator_mean_rel"].attrs = {"units": "%"}
+    change_ds["indicator_mean_relative_change"].attrs = {"units": "%"}
 
     change_ds.to_netcdf(netcdf_filename[0])

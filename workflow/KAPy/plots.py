@@ -62,6 +62,7 @@ def makeBoxplot(config, indID, srcFiles, outFile=None):
 
     # Now merge into dataframe and pivot for plotting
     pltLong = pd.merge(datdf, ptileTbl, on="percentiles", how="left")
+
     pltDatWide = pltLong.pivot_table(
         index=["scenario", "periodID"], columns="ptileLbl", values="indicator"
     ).reset_index()
@@ -92,6 +93,7 @@ def makeBoxplot(config, indID, srcFiles, outFile=None):
         + scale_fill_manual(values=scColourDict)
         + theme_bw()
         + theme(legend_position="bottom", panel_grid_major_x=element_blank())
+        + coord_cartesian(ylim=[2.7e-05,5.7e-05])
     )
 
     # Output
